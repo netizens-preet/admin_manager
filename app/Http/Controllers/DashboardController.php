@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
-use App\Models\Order;
+use App\Services\DashboardService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    public function __construct(protected DashboardService $dashboardService)
+    {
+        // $this->dashboardService = $dashboardService;
+    }
+
     public function index()
     {
-        // Fetch the data once here
-        $totalProducts = Product::count();
-        $totalOrders   = Order::count();
-        $totalRevenue  = Order::where('status', 'delivered')->sum('total');
-        $pendingOrders = Order::where('status', 'pending')->count();
+        $user = auth()->user();
 
-        // Pass it to the 'dashboard' view
-        return view('dashboard', compact(
-            'totalProducts',
-            'totalOrders',
-            'totalRevenue',
-            'pendingOrders'
-        ));
+        // Use the service to get the appropriate data array
+        $data = $user->isAdmin()
+            ? $this->dashboardService->getAdminStats()
+            : $this->dashboardService->getCustomerStats($user);
+
+        return view('dashboard', $data);
     }
 }
