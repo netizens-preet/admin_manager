@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -27,7 +28,23 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'role',
+        'is_active',
     ];
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeBanned($query)
+    {
+        return $query->where('is_active', false);
+    }
+
+    public function isActive()
+    {
+        return (bool) $this->is_active;
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -52,11 +69,19 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
-    public function isAdmin() {
+    public function isAdmin()
+    {
         return $this->role === self::admin;
     }
 
-    public function isCustomer() {
+    public function isCustomer()
+    {
         return $this->role === self::customer;
     }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+    
 }

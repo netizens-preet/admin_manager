@@ -10,11 +10,15 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Product extends Model
 {
     use SoftDeletes;
+    
     protected $fillable = ['category_id', 'name', 'price', 'stock_quantity', 'is_active', 'description'];
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class)->withDefault([
+        'name' => 'Uncategorized',
+        'description' => 'This product has no category assigned.'
+    ]);
     }
 
     public function images(): HasMany
@@ -25,7 +29,12 @@ class Product extends Model
     {
         return $this->hasOne(ProductImage::class)->where('is_primary', true);
     }
-    public function orderItems() {
-    return $this->hasMany(OrderItem::class);
-}
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class, 'product_tags')->withPivot('is_featured');
+    }
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }

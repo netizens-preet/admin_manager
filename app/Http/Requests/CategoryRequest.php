@@ -22,9 +22,15 @@ class CategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-
-                'name' => 'required|string|max:100|unique:categories,name' . ($this->category ? ',' . $this->category->id : ''),
-                'description' => 'nullable|string|max:1000',
+            'name' => [
+                'required',
+                'string',
+                'max:100',
+                \Illuminate\Validation\Rule::unique('categories', 'name')
+                    ->ignore($this->route('category'))
+                    ->whereNull('deleted_at')
+            ],
+            'description' => 'nullable|string|max:1000',
         ];
 
     }

@@ -6,9 +6,10 @@ use App\Http\Requests\ProductRequest;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Order;
+use App\Models\ProductImage;
 use App\Models\Tag;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -26,8 +27,7 @@ class ProductController extends Controller
      */
     public function create()
     {
-        // if (!auth()->user()->isAdmin())
-        //     abort(403);
+
         $categories = Category::all();
         $tags = Tag::all();
         return view('product.create', compact('categories', 'tags'));
@@ -37,41 +37,63 @@ class ProductController extends Controller
      */
     public function store(ProductRequest $request)
     {
-        $product = Product::create($request->validated());
-        $product->tags()->sync($request->tags ?? []);
+        // validate request
+        $validateData = $request->validated();
 
+
+
+        // Create Product
+        $product = Product::create([
+            'category_id' => $validateData['category_id'],
+            'name' => $validateData['name'],
+            'price' => $validateData['price'],
+            'stock_quantity' => $validateData['stock_quantity'],
+            'description' => $validateData['description'],
+            'is_active' => $validateData['is_active'],
+        ]);
+
+        // Sync tags
+        $tags = $request->input('tags', []);
+        $formattedTags = [];
+        foreach ($tags as $tagId => $tagData) {
+            if (isset($tagData['selected'])) {
+                $formattedTags[$tagId] = [
+                    'is_featured' => isset($tagData['is_featured'])
+                ];
+            }
+        }
+        $product->tags()->sync($formattedTags);
+
+
+        // Check for thumbnail image
         if ($request->hasFile('thumbnail')) {
+            // create thumbnail image
             $product->images()->create([
                 'image_path' => $request->file('thumbnail')->store('products', 'public'),
                 'is_primary' => true
             ]);
         }
 
-        $gallery = collect($request->file('gallery', []))->map(fn($img) => [
-            'image_path' => $img->store('products', 'public'),
-            'is_primary' => false
-        ]);
+        // Check for gallery image
+        if ($request->hasFile('gallery')) {
+            // Map gallery images
+            $gallery = collect($request->file('gallery', []))->map(fn($img) => [
+                'image_path' => $img->store('products', 'public'),
+                // 'is_primary' => false
+            ]);
 
-        $product->images()->createMany($gallery->toArray());
+            $product->images()->createMany($gallery->toArray());
+        }
 
         return redirect()->route('product.index')->with('success', 'Product created successfully.');
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(Product $product)
-    {
-        $product->load(['category', 'images', 'primaryimage']);
-        return view('product.show', compact('product'));
-    }
-    /**
      * Show the form for editing the specified resource.
      */
     public function edit(Product $product)
     {
-        // if (!auth()->user()->isAdmin())
-        //     abort(403);
+
         $categories = Category::all();
         $tags = Tag::all();
         $product->load(['images', 'tags']);
@@ -82,11 +104,62 @@ class ProductController extends Controller
      */
     public function update(ProductRequest $request, Product $product)
     {
-        // if (!auth()->user()->isAdmin())
-        //     abort(403);
+        // validate request
+        $validateData = $request->validated();
 
-        $product->update($request->validated());
-        $product->tags()->sync($request->tags ?? []);
+        // Update product
+        $product->update([
+            'category_id' => $validateData['category_id'],
+            'name' => $validateData['name'],
+            'price' => $validateData['price'],
+            'stock_quantity' => $validateData['stock_quantity'],
+            'description' => $validateData['description'],
+            'is_active' => $validateData['is_active'],
+        ]);
+
+        // sync tag
+        $tags = $request->input('tags', []);
+        $formattedTags = [];
+        foreach ($tags as $tagId => $tagData) {
+            if (isset($tagData['selected'])) {
+                $formattedTags[$tagId] = [
+                    'is_featured' => isset($tagData['is_featured'])
+                ];
+            }
+        }
+        $product->tags()->sync($formattedTags);
+
+        // Handle thumbnail update
+        if ($request->hasFile('thumbnail')) {
+            $newFile = $request->file('thumbnail');
+            $thumbnailRecord = ProductImage::where('product_id', $product->id)
+                ->where('is_primary', true)
+                ->first();
+
+            if ($thumbnailRecord) {
+                $oldPath = $thumbnailRecord->image_path;
+                $newFileHash = md5_file($newFile->getRealPath());
+                $oldFileHash = Storage::disk('public')->exists($oldPath)
+                    ? md5(Storage::disk('public')->get($oldPath))
+                    : null;
+
+                if ($newFileHash !== $oldFileHash) {
+                    Storage::disk('public')->delete($oldPath);
+                    $newPath = $newFile->store('products', 'public');
+                    $thumbnailRecord->update(['image_path' => $newPath]);
+                }
+            }
+        }
+
+        // Handle gallery update
+        if ($request->hasFile('gallery')) {
+            foreach ($request->file('gallery') as $img) {
+                $product->images()->create([
+                    'image_path' => $img->store('products', 'public'),
+                    'is_primary' => false
+                ]);
+            }
+        }
 
         return redirect()->route('product.index')->with('success', 'Product updated successfully.');
     }
@@ -97,8 +170,6 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        // if (!auth()->user()->isAdmin())
-        //     abort(403);
         if ($product->orderItems()->exists()) {
             return back()->with('error', 'Cannot delete! This product is linked to existing orders.');
         }
@@ -107,8 +178,7 @@ class ProductController extends Controller
     }
     public function toggleStatus(Product $product)
     {
-        // if (!auth()->user()->isAdmin())
-        //     abort(403);
+
         $product->update(['is_active' => !$product->is_active]);
         return back()->with('status_changed', 'Product visibility updated.');
     }
@@ -137,20 +207,10 @@ class ProductController extends Controller
 
     public function addToOrder(Request $request, Product $product)
     {
-        $order = Order::where('user_id', auth()->id())
-            ->where('status', 'pending')
-            ->latest()
-            ->first();
-
-        if (!$order) {
-            $order = Order::create([
-                'user_id' => auth()->id(),
-                'status' => 'pending',
-                'subtotal' => 0,
-                'total' => 0,
-                'shipping_address' => 'Update shipping address on checkout',
-            ]);
-        }
+        $order = Order::firstOrCreate(
+            ['user_id' => auth()->id(), 'status' => 'pending'],
+            ['shipping_address' => 'Update shipping address on checkout', 'subtotal' => 0, 'total' => 0]
+        );
 
         $order->items()->create([
             'product_id' => $product->id,
@@ -159,11 +219,7 @@ class ProductController extends Controller
             'total_price' => $product->price * $request->input('quantity', 1),
         ]);
 
-        $newTotal = $order->items()->sum('total_price');
-        $order->update([
-            'subtotal' => $newTotal,
-            'total' => $newTotal,
-        ]);
+        $order->syncTotals();
 
         return redirect()->route('order.show', $order->id)
             ->with('success', '✓ ' . $product->name . ' added to your cart.');

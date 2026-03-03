@@ -30,6 +30,8 @@ class ProductRequest extends FormRequest
             'is_active' => 'boolean',
             'thumbnail' => $this->isMethod('POST') ? 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048' : 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'gallery.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'tags' => 'nullable|array',
+            'tags.*.is_featured' => 'nullable|boolean',
         ];
     }
 }

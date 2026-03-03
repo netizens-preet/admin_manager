@@ -43,6 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::controller(ProductImageController::class)->prefix('products/{product}/images')->group(function () {
             Route::post('/', 'store')->name('product-images.store');
+            Route::post('/upload-thumbnail', 'uploadThumbnail')->name('product-images.upload-thumbnail');
             Route::patch('{image}/primary', 'setPrimary')->name('product-images.primary');
         });
         Route::delete('product-images/{image}', [ProductImageController::class, 'destroy'])->name('product-images.destroy');
