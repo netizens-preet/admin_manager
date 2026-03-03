@@ -30,6 +30,7 @@ class DashboardService
     }
 
     /**
+     * 
      * Get data specifically for the Customer View
      */
     public function getCustomerStats($user)

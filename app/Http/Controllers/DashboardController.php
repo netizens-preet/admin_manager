@@ -13,6 +13,8 @@ class DashboardController extends Controller
     }
 
     public function index()
+
+
     {
         $user = auth()->user();
 
