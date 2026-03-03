@@ -8,8 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class OrderItem extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['order_id', 'product_id', 'quantity', 'price'];
-
+    protected $fillable = ['order_id', 'product_id', 'quantity', 'unit_price', 'total_price'];
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

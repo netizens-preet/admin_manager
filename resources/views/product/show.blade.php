@@ -43,7 +43,7 @@
                         <div class="mb-4">
                             <span
                                 class="px-3 py-1 text-xs font-semibold bg-indigo-100 text-indigo-700 rounded-full uppercase tracking-wider">
-                                {{ $product->category->name }}
+                                {{ $product->category->name ?? 'Uncategorized' }}
                             </span>
                         </div>
 
