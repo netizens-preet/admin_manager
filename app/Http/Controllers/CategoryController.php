@@ -1,87 +1,75 @@
 <?php
 
 namespace App\Http\Controllers;
-use Illuminate\Support\Str;
+
 use App\Models\Category;
-use Illuminate\Http\Request;
 use App\Http\Requests\CategoryRequest;
+use App\Services\CategoryService;
+use Illuminate\Http\Request;
+
 class CategoryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    protected $categoryService;
+
+    // Inject the service
+    public function __construct(CategoryService $categoryService)
+    {
+        $this->categoryService = $categoryService;
+    }
+
     public function index()
     {
-
-        $categories = Category::all();
+        $categories = $this->categoryService->getCategories();
         return view("category.index", compact("categories"));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-
         return view("category.create");
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(CategoryRequest $request)
     {
-
-        $validated = $request->validated();
-        $validated['slug'] = Str::slug($validated['name']);
-
-        $category = Category::onlyTrashed()->where('name', $validated['name'])->first();
-
-        if ($category) {
-            $category->restore();
-            $category->update($validated);
-            return redirect()->route("category.index")->with('success', 'Category restored and updated successfully.');
+        try {
+            $this->categoryService->storeOrRestore($request->validated());
+            return redirect()->route("category.index")
+                ->with('success', 'Category saved successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
-
-        Category::create($validated);
-        return redirect()->route("category.index")->with('success', 'Category created successfully.');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Category $category)
     {
-        return view('category.show', compact('category'));
+        // Let the service prepare the complex data
+        $data = $this->categoryService->getCategoryDetails($category);
+        return view('category.show', $data);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Category $category)
     {
-
         return view("category.edit", compact("category"));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(CategoryRequest $request, Category $category)
     {
-
-        $category->update($request->validated());
-        return redirect()->route("category.index")->with('success', 'Category updated successfully.');
+        try {
+            $this->categoryService->update($category, $request->validated());
+            return redirect()->route("category.index")
+                ->with('success', 'Category updated successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Update failed.');
+        }
     }
 
     public function destroy(Category $category)
     {
-
-        // if ($category->products()->whereHas('orderItems')->exists()) {
-        //     return back()->with('error', 'Cannot delete category: Some products in this category are attached to existing orders.');
-        // }
-
-        $category->delete();
-        return redirect()->route("category.index")->with('success', 'Category deleted successfully.');
+        try {
+            $this->categoryService->delete($category);
+            return redirect()->route("category.index")
+                ->with('success', 'Category deleted successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
     }
 }
