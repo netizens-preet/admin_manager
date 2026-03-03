@@ -12,6 +12,7 @@ class CategoryController extends Controller
      */
     public function index()
     {
+
         $categories = Category::all();
         return view("category.index", compact("categories"));
     }
@@ -21,6 +22,7 @@ class CategoryController extends Controller
      */
     public function create()
     {
+
         return view("category.create");
     }
 
@@ -29,8 +31,18 @@ class CategoryController extends Controller
      */
     public function store(CategoryRequest $request)
     {
+
         $validated = $request->validated();
         $validated['slug'] = Str::slug($validated['name']);
+
+        $category = Category::onlyTrashed()->where('name', $validated['name'])->first();
+
+        if ($category) {
+            $category->restore();
+            $category->update($validated);
+            return redirect()->route("category.index")->with('success', 'Category restored and updated successfully.');
+        }
+
         Category::create($validated);
         return redirect()->route("category.index")->with('success', 'Category created successfully.');
     }
@@ -40,7 +52,7 @@ class CategoryController extends Controller
      */
     public function show(Category $category)
     {
-
+        return view('category.show', compact('category'));
     }
 
     /**
@@ -48,6 +60,7 @@ class CategoryController extends Controller
      */
     public function edit(Category $category)
     {
+
         return view("category.edit", compact("category"));
     }
 
@@ -56,16 +69,19 @@ class CategoryController extends Controller
      */
     public function update(CategoryRequest $request, Category $category)
     {
+
         $category->update($request->validated());
         return redirect()->route("category.index")->with('success', 'Category updated successfully.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Category $category)
     {
+
+        // if ($category->products()->whereHas('orderItems')->exists()) {
+        //     return back()->with('error', 'Cannot delete category: Some products in this category are attached to existing orders.');
+        // }
+
         $category->delete();
-        return redirect()->route("category.index")->with('success', 'Product moved to trash.');
+        return redirect()->route("category.index")->with('success', 'Category deleted successfully.');
     }
 }
