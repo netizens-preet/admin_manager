@@ -57,7 +57,7 @@ class OrderController extends Controller
             if ($order->status->value !== 'pending') {
             throw new \Exception('Only pending orders can be placed.');
         }
-
+        
         if ($order->items()->count() === 0) {
             throw new \Exception('Cannot place an empty order.');
         }
