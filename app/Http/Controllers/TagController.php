@@ -4,16 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TagRequest;
 use App\Models\Tag;
+use App\Services\TagService;
 use Illuminate\Http\Request;
 
 class TagController extends Controller
 {
+    public function __construct(
+        protected TagService $tagService
+    ) {
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $tags = Tag::latest()->get();
+        $tags = $this->tagService->getTags();
         return view('tag.index', compact('tags'));
     }
 
@@ -30,18 +36,12 @@ class TagController extends Controller
      */
     public function store(TagRequest $request)
     {
-        $validated = $request->validated();
-        $validated['slug'] = str()->slug($validated['name']);
-        Tag::create($validated);
-        return redirect()->route('tag.index')->with('success', 'Tag created successfully');
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Tag $tag)
-    {
-        //
+        try {
+            $this->tagService->store($request->validated());
+            return redirect()->route('tag.index')->with('success', 'Tag created successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     /**
@@ -57,10 +57,12 @@ class TagController extends Controller
      */
     public function update(TagRequest $request, Tag $tag)
     {
-        $validated = $request->validated();
-        $validated['slug'] = str()->slug($validated['name']);
-        $tag->update($validated);
-        return redirect()->route('tag.index')->with('success', 'Tag updated successfully');
+        try {
+            $this->tagService->update($tag, $request->validated());
+            return redirect()->route('tag.index')->with('success', 'Tag updated successfully');
+        } catch (\Exception $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     /**
@@ -68,10 +70,12 @@ class TagController extends Controller
      */
     public function destroy(Tag $tag)
     {
-        if ($tag->products()->exists()) {
-            return back()->with('error', 'Cannot delete tag because it is associated with products.');
+        try {
+            $this->tagService->delete($tag);
+            return back()->with('success', 'Tag deleted successfully.');
+        } catch (\Exception $e) {
+            // This catches the 'associated with products' exception from the service
+            return back()->with('error', $e->getMessage());
         }
-        $tag->delete();
-        return back()->with('success', 'Tag deleted successfully.');
     }
 }
